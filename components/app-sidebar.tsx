@@ -33,14 +33,9 @@ export function AppSidebar() {
       icon: Database,
     },
     {
-      name: "Elections",
-      path: "/elections",
-      icon: Database,
-    },
-    {
-      name: "Storage",
-      path: "/storage",
-      icon: Database,
+      name: "Statistics Bias",
+      path: "/statistics",
+      icon: BarChart3,
     },
   ]
 

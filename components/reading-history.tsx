@@ -18,44 +18,12 @@ export function ReadingHistory() {
   const articles: Article[] = [
     {
       id: 1,
-      title: "Senate Passes New Infrastructure Bill with Bipartisan Support",
-      source: "The Washington Post",
+      title: "EPA considers Ann Arbor’s Gelman plume for list of nation’s most serious contamination sites",
+      source: "Michigan Daily",
       sourceType: "left",
-      readAt: "Today, 10:23 AM",
+      readAt: "March 21, 2025",
       sentiment: "positive",
-    },
-    {
-      id: 2,
-      title: "Economic Indicators Show Mixed Signals for Recovery",
-      source: "Reuters",
-      sourceType: "center",
-      readAt: "Today, 9:15 AM",
-      sentiment: "neutral",
-    },
-    {
-      id: 3,
-      title: "Supreme Court Ruling Raises Questions About Executive Power",
-      source: "Wall Street Journal",
-      sourceType: "right",
-      readAt: "Yesterday, 4:45 PM",
-      sentiment: "negative",
-    },
-    {
-      id: 4,
-      title: "New Study Reveals Impact of Climate Change on Coastal Cities",
-      source: "NPR",
-      sourceType: "left",
-      readAt: "Yesterday, 2:30 PM",
-      sentiment: "negative",
-    },
-    {
-      id: 5,
-      title: "Tech Companies Announce New Privacy Measures",
-      source: "AP News",
-      sourceType: "center",
-      readAt: "2 days ago",
-      sentiment: "positive",
-    },
+    }
   ]
 
   const getSourceBadgeVariant = (sourceType: Article["sourceType"]) => {
