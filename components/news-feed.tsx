@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, Bookmark, Clock, ExternalLink, ThumbsDown, ThumbsUp, Brain } from "lucide-react"
+import { AlertCircle, Bookmark, Clock, ExternalLink, ThumbsDown, ThumbsUp } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { ArticleDetailModal } from "@/components/article-detail-modal"
@@ -12,7 +12,6 @@ import { NewsSearch } from "@/components/news-search"
 import { getGuestId } from "@/lib/supabase"
 import { format } from "date-fns"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { cn } from "@/lib/utils"
 
 type NewsArticle = {
   id: string
@@ -30,15 +29,6 @@ type NewsArticle = {
     downvotes: number
   }
   userVote: "up" | "down" | null
-  analysis?: {
-    political_bias: number
-    location: {
-      city: string
-      state: string
-      country: string
-    }
-    confidence_score: number
-  }
 }
 
 export function NewsFeed() {
@@ -55,7 +45,6 @@ export function NewsFeed() {
   const [dataSource, setDataSource] = useState<"api" | "cache" | "cache_fallback" | null>(null)
   const observer = useRef<IntersectionObserver>()
   const { toast } = useToast()
-  const [analyzingArticles, setAnalyzingArticles] = useState<Set<string>>(new Set())
 
   const lastArticleRef = useCallback(
     (node: HTMLDivElement) => {
@@ -274,58 +263,6 @@ export function NewsFeed() {
     return score.toFixed(1)
   }
 
-  const handleAnalyze = async (article: NewsArticle) => {
-    if (analyzingArticles.has(article.id)) return
-
-    setAnalyzingArticles(prev => new Set(prev).add(article.id))
-
-    try {
-      const response = await fetch("/api/analyze-article", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          articleId: article.id,
-          title: article.title,
-          description: article.description,
-          content: article.content,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to analyze article")
-      }
-
-      const data = await response.json()
-      
-      // Update the article with the analysis
-      setArticles(prev => prev.map(a => 
-        a.id === article.id 
-          ? { ...a, analysis: data.analysis }
-          : a
-      ))
-
-      toast({
-        title: "Analysis Complete",
-        description: "Article has been analyzed successfully.",
-      })
-    } catch (error: any) {
-      console.error("Analysis error:", error)
-      toast({
-        title: "Analysis Failed",
-        description: error.message || "Failed to analyze article",
-        variant: "destructive",
-      })
-    } finally {
-      setAnalyzingArticles(prev => {
-        const next = new Set(prev)
-        next.delete(article.id)
-        return next
-      })
-    }
-  }
-
   const renderArticleCard = (article: NewsArticle, index: number) => {
     const isLastArticle = index === articles.length - 1
 
@@ -338,15 +275,9 @@ export function NewsFeed() {
         <CardHeader className="cursor-pointer" onClick={() => openArticleDetail(article)}>
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{article.title}</CardTitle>
-            {article.analysis && (
-              <Badge variant="outline" className={cn(
-                "flex items-center gap-1",
-                article.analysis.political_bias < -3 ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" :
-                article.analysis.political_bias > 3 ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" :
-                "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-              )}>
-                <Brain className="h-3 w-3" />
-                <span>{article.analysis.political_bias.toFixed(1)}</span>
+            {article.political_score !== undefined && (
+              <Badge variant="outline" className={getPoliticalScoreColor(article.political_score)}>
+                {getPoliticalLabel(article.political_score)}
               </Badge>
             )}
           </div>
@@ -370,12 +301,6 @@ export function NewsFeed() {
             </div>
           )}
           <p>{article.description}</p>
-          {article.analysis && (
-            <div className="text-sm text-muted-foreground">
-              <p>Location: {article.analysis.location.city}, {article.analysis.location.state}, {article.analysis.location.country}</p>
-              <p>Confidence: {(article.analysis.confidence_score * 100).toFixed(1)}%</p>
-            </div>
-          )}
         </CardContent>
         <CardFooter className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -406,22 +331,6 @@ export function NewsFeed() {
             <Button size="sm" variant="ghost" className="h-8 gap-1" onClick={() => handleBookmark(article.id)}>
               <Bookmark className="h-4 w-4" />
               <span className="hidden sm:inline">Save</span>
-            </Button>
-
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleAnalyze(article)
-              }}
-              disabled={analyzingArticles.has(article.id)}
-            >
-              <Brain className="h-4 w-4" />
-              <span className="hidden sm:inline">
-                {analyzingArticles.has(article.id) ? "Analyzing..." : "Analyze"}
-              </span>
             </Button>
           </div>
 
