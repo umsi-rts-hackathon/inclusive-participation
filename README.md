@@ -79,4 +79,3 @@ This application integrates with the **NewsFeed API** to deliver real-time, poli
 Make sure to set up your API key:
 
 ```bash
-# .env file

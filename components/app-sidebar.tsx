@@ -28,6 +28,16 @@ export function AppSidebar() {
       icon: BarChart3,
     },
     {
+      name: "Regulations",
+      path: "/regulations",
+      icon: Database,
+    },
+    {
+      name: "Elections",
+      path: "/elections",
+      icon: Database,
+    },
+    {
       name: "Storage",
       path: "/storage",
       icon: Database,

@@ -1,55 +1,84 @@
+import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
-import { getArticleById, getArticleByExternalId, updateArticle } from "@/lib/supabase"
-import { generateArticleSummary, analyzePoliticalLeaning } from "@/lib/openai"
+import OpenAI from "openai"
 
-export async function POST(request: Request) {
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+export async function POST(req: Request) {
   try {
-    const { articleId } = await request.json()
+    const { articleId, title, description, content } = await req.json()
 
-    if (!articleId) {
-      return NextResponse.json({ error: "Missing articleId" }, { status: 400 })
+    if (!articleId || !title || !description) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      )
     }
 
-    // Try to get the article by ID first
-    let article = await getArticleById(articleId)
+    // Prepare the prompt for OpenAI
+    const prompt = `Analyze this news article and provide:
+1. Political bias score (-10 to 10, where -10 is strongly Democratic/Left, 0 is neutral, and 10 is strongly Republican/Right)
+2. Estimated location (city, state, country) mentioned in the article
+3. Confidence score for the analysis (0-1)
 
-    // If not found by ID, try by external_id
-    if (!article) {
-      article = await getArticleByExternalId(articleId)
-    }
+Article Title: ${title}
+Description: ${description}
+Content: ${content || "No content available"}
 
-    if (!article) {
-      return NextResponse.json({ error: "Article not found" }, { status: 404 })
-    }
+Respond in JSON format with these fields:
+{
+  "political_bias": number,
+  "location": {
+    "city": string,
+    "state": string,
+    "country": string
+  },
+  "confidence": number
+}`
 
-    // Always generate a fresh analysis for each request to ensure uniqueness
-    // This is for demo purposes - in production, you might want to cache results
-    const [summary, politicalScore] = await Promise.all([
-      generateArticleSummary(article),
-      analyzePoliticalLeaning(article),
-    ])
-
-    // Update the article with the new data
-    await updateArticle(article.id, {
-      ai_summary: summary,
-      political_score: politicalScore,
+    // Get analysis from OpenAI
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        summary,
-        politicalScore,
-      },
-    })
-  } catch (error: any) {
-    console.error("Error analyzing article:", error)
+    const analysis = JSON.parse(completion.choices[0].message.content)
+
+    // Save to Supabase
+    const { error } = await supabase
+      .from("article_analysis")
+      .upsert({
+        article_id: articleId,
+        political_bias: analysis.political_bias,
+        location_city: analysis.location.city,
+        location_state: analysis.location.state,
+        location_country: analysis.location.country,
+        confidence_score: analysis.confidence,
+        analyzed_at: new Date().toISOString(),
+      })
+
+    if (error) {
+      console.error("Supabase error:", error)
+      return NextResponse.json(
+        { error: "Failed to save analysis" },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: true, analysis })
+  } catch (error) {
+    console.error("Analysis error:", error)
     return NextResponse.json(
-      {
-        error: "Failed to analyze article",
-        message: error.message,
-      },
-      { status: 500 },
+      { error: "Failed to analyze article" },
+      { status: 500 }
     )
   }
 }
